@@ -1,0 +1,825 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ACD_2.0"
+Parameters:
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: Contraseña para la base de datos Aurora
+    Default: coffee_beans_for_all
+Resources:
+  CafeVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: cafe-vpc
+
+  CafeInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cafe-igw
+
+  CafeVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref CafeVPC
+      InternetGatewayId: !Ref CafeInternetGateway
+
+  CafePublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CafeVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cafe-public-subnet-1
+
+  CafePublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CafeVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cafe-public-subnet-2
+
+  CafePublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref CafeVPC
+      Tags:
+        - Key: Name
+          Value: cafe-public-rt
+
+  CafeInternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: CafeVPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref CafePublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref CafeInternetGateway
+
+  CafeSubnet1RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref CafePublicSubnet1
+      RouteTableId: !Ref CafePublicRouteTable
+
+  CafeSubnet2RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref CafePublicSubnet2
+      RouteTableId: !Ref CafePublicRouteTable
+
+  myDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "product_name"
+          AttributeType: "S"
+        - AttributeName: "special"
+          AttributeType: "N"
+      KeySchema:
+        - AttributeName: "product_name"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "1"
+        WriteCapacityUnits: "1"
+      TableName: "FoodProducts"
+      GlobalSecondaryIndexes:
+        - IndexName: "special_GSI"
+          KeySchema:
+            - AttributeName: "special"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+          ProvisionedThroughput:
+            ReadCapacityUnits: "1"
+            WriteCapacityUnits: "1"
+  ApiGatewayMethodPOST:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CafeAuthorizer
+      HttpMethod: POST
+      OperationName: "StartExecution"
+      Integration:
+        Type: AWS
+        Credentials: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+        IntegrationHttpMethod: POST
+        Uri: arn:aws:apigateway:us-east-1:states:action/StartExecution
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+            StatusCode: "200"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: !Sub
+            - '{"input": "$util.escapeJavaScript($input.json(${_dollar}))","stateMachineArn": "arn:aws:states:us-east-1:${AWS::AccountId}:stateMachine:MyStateMachine"}'
+            - { _dollar: "'$'" }
+      ResourceId: !Ref ApiGatewayResource3
+      RestApiId: !Ref ApiGatewayRestApi
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+  ApiGatewayMethodOPTIONS:
+    Type: "AWS::ApiGateway::Method"
+    DependsOn:
+      - S3Bucket
+    Properties:
+      ResourceId: !Ref ApiGatewayResource3
+      RestApiId: !Ref ApiGatewayRestApi
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Credentials: "'true'"
+            ResponseTemplates:
+              application/json: ""
+            StatusCode: "200"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Credentials: true
+          StatusCode: "200"
+  ApiGatewayMethodGET:
+    Type: "AWS::ApiGateway::Method"
+    DependsOn:
+      - LambdaProducts
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        Type: AWS
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaProducts.Arn}/invocations
+        Credentials: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      ResourceId: !Ref ApiGatewayResource1
+      RestApiId: !Ref ApiGatewayRestApi
+      RequestParameters:
+        method.request.querystring.product_id: false
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+  ApiGatewayMethodGET2:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        Type: AWS
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaProducts.Arn}/invocations
+        Credentials: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseTemplates:
+              application/json: ""
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: |
+            {
+              "path": "$context.resourcePath"
+            }
+      ResourceId: !Ref ApiGatewayResource2
+      RestApiId: !Ref ApiGatewayRestApi
+      RequestParameters:
+        method.request.querystring.product_id: false
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref ApiGatewayDeployment
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: "prod"
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - ApiGatewayMethodOPTIONS
+      - ApiGatewayMethodGET
+      - ApiGatewayMethodGET2
+    Properties:
+      Description: Mock API Deployment
+      RestApiId: !Ref ApiGatewayRestApi
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      ApiKeySourceType: HEADER
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: "ProductsApi"
+  ApiGatewayResource1:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: "products"
+      RestApiId: !Ref ApiGatewayRestApi
+  ApiGatewayResource2:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref ApiGatewayResource1
+      PathPart: "on_offer"
+      RestApiId: !Ref ApiGatewayRestApi
+  ApiGatewayResource3:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: "create_report"
+      RestApiId: !Ref ApiGatewayRestApi
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: false
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - s3:GetObject
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3Bucket}/*"
+  LambdaProducts:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Lambda Function For Products
+      FunctionName: get_all_products
+      Handler: index.lambda_handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: python3.11
+      Code:
+        ZipFile: |
+          import boto3, json
+          from boto3.dynamodb.conditions import Key
+          from boto3.dynamodb.conditions import Key, Attr, Not
+
+          TABLE_NAME_STR = 'FoodProducts'
+          INDEX_NAME_STR = 'special_GSI'
+          DDB = boto3.resource('dynamodb', region_name='us-east-1')
+
+          def lambda_handler(event, context):
+
+              offer_path_str = event.get('path')
+              if offer_path_str is not None:
+                  return scan_index(event, context)
+              else:
+                  pass
+              print("running scan on table")
+
+              DDB = boto3.resource('dynamodb', region_name='us-east-1')
+
+              TABLE = DDB.Table(TABLE_NAME_STR)
+
+              response = TABLE.scan()
+
+              data = response['Items']
+
+
+
+              while 'LastEvaluatedKey' in response:
+                  response = TABLE.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+                  print("We needed to paginate and extend the response")
+                  data.extend(response['Items'])
+
+              #python return non standard JSON
+              #so we need a helper to convet Decimal('595') and special returned by dynamo
+              #to an integer like 595
+              for item in data:
+                 item['price_in_cents_int'] = item.pop('price_in_cents')
+                 if item.get('special') is not None:
+                   item['special_int'] = item.pop('special')
+                 item['tag_str_arr'] = item.pop('tags')
+                 item['description_str'] = item.pop('description')
+                 item['product_name_str'] = item.pop('product_name')
+                 item['product_id_str'] = item.pop('product_id')
+
+                 if item['price_in_cents_int']:
+                      item['price_in_cents_int'] = int(item['price_in_cents_int'])
+                 if item.get('special_int') is not None:
+                      item['special_int'] = int(item['special_int'])
+
+              return_me={"product_item_arr": data}
+
+              return return_me
+
+          def scan_index(event, context):
+
+              print("running scan on index")
+              ## event and context not used
+              TABLE = DDB.Table(TABLE_NAME_STR)
+
+
+              response = TABLE.scan(
+                  IndexName=INDEX_NAME_STR,
+                  FilterExpression=Not(Attr("tags").contains("out of stock"))
+              )
+
+              data = response['Items']
+
+              while 'LastEvaluatedKey' in response:
+                  response = TABLE.scan(
+                      ExclusiveStartKey=response['LastEvaluatedKey'],
+                      IndexName=INDEX_NAME_STR,
+                      FilterExpression=Not(Attr("tags").contains("out of stock"))
+                  )
+                  print("We needed to paginate and extend the response")
+                  data.extend(response['Items'])
+
+              #python return non standard JSON
+              #so we need a helper to convet Decimal('595') and special returned by dynamo
+              #to an integer like 595
+              for item in data:
+                 item['price_in_cents_int'] = item.pop('price_in_cents')
+                 item['special_int'] = item.pop('special')
+                 item['tag_str_arr'] = item.pop('tags')
+                 item['description_str'] = item.pop('description')
+                 item['product_name_str'] = item.pop('product_name')
+                 item['product_id_str'] = item.pop('product_id')
+
+                 if item['price_in_cents_int']:
+                      item['price_in_cents_int'] = int(item['price_in_cents_int'])
+                 if item.get('special_int') is not None:
+                      item['special_int'] = int(item['special_int'])
+
+              return_me = {
+                  "product_item_arr": data
+              }
+              return return_me
+
+
+          #remove this line below once you have tested locally and wish to deploy
+          #print(lambda_handler({}, None))
+  MyRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: "cafe/node-web-app"
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowPushPull
+            Effect: Allow
+            Principal:
+              AWS:
+                - "*"
+            Action:
+              - "ecr:*"
+  # Extra subnet reuired for not only RDS but for Beanstalk
+  ExtraSubnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref CafeVPC
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ""
+      CidrBlock: "10.0.2.0/24"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: "ExtraSubnetForRds"
+
+  # Subnet to Rout table assocaite for extra subnet
+  ExtraSubnetRouteAssociate:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref CafePublicRouteTable
+      SubnetId: !Ref ExtraSubnet
+
+  # Extra subnet grounp for RDS and Beanstalk
+  BeanstalkApp:
+    Type: AWS::ElasticBeanstalk::Application
+    Properties:
+      ApplicationName: MyNodeApp
+      Description: "Beanstalk application for containers"
+
+  MyStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionS3Location:
+        Bucket: !Ref S3Bucket # aws-tc-largeobjects
+        Key: step.json #CUR-TF-200-ACCDEV-2-91558/13-lab-ci-cd/s3/step.json
+      DefinitionSubstitutions:
+        lambda_generate_html_arn_str: !GetAtt LambdaGenerateHTML.Arn
+        lambda_generate_pre_signed_arn_str: !GetAtt LambdaGeneratePreSignedUrl.Arn
+        sns_publish_arn_str: !Ref SNSForSendingEmail
+        lambda_generate_data_arn_str: !GetAtt LambdaGenerateReportData.Arn
+      RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      StateMachineName: MyStateMachine
+      StateMachineType: EXPRESS
+  LambdaGeneratePreSignedUrl:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - LambdaCustomS3Mover
+      - S3Bucket
+    Properties:
+      Description: Lambda Function to generate a presigned url
+      FunctionName: GeneratePresignedURL
+      Handler: index.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          MY_BUCKET_STR: !Ref S3Bucket
+      Code:
+        ZipFile: |
+          var
+            AWS_SDK = require("aws-sdk"),
+            S3_API = new AWS_SDK.S3({apiVersion: "2006-03-01"}),
+            BUCKET_NAME_STR = process.env.MY_BUCKET_STR;
+
+          exports.handler = async (event) => {
+              console.log("BUCKET_NAME_STR", BUCKET_NAME_STR);
+              var
+                  key_str = "report.html",
+                  expires_in_seconds_int = 60,
+                  params = {
+                      Bucket: BUCKET_NAME_STR,
+                      Key: key_str,
+                      Expires: expires_in_seconds_int
+                  },
+                  presigned_url_str = S3_API.getSignedUrl("getObject", params),
+                  response = {
+
+                      "presigned_url_str": presigned_url_str
+                  };
+              return response;
+          };
+        # S3Bucket: !Ref S3Bucket # aws-tc-largeobjects
+        # S3Key: generate_presigned.zip # CUR-TF-200-ACCDEV-2-91558/13-lab-ci-cd/s3/generate_presigned.zip
+      # Code:
+  LambdaGenerateHTML:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - LambdaCustomS3Mover
+      - CustomS3Mover
+      - S3Bucket
+    Properties:
+      Description: Lambda Function to generate a the HTML report
+      FunctionName: generateHTML
+      Handler: index.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: nodejs20.x
+      Timeout: 10
+      Environment:
+        Variables:
+          MY_BUCKET_STR: !Ref S3Bucket
+      Code:
+        S3Bucket: !Ref S3Bucket # aws-tc-largeobjects
+        S3Key: generate_html.zip # CUR-TF-200-ACCDEV-2-91558/13-lab-ci-cd/s3/generate_html.zip
+  LambdaGenerateReportData:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - CustomS3Mover
+    Properties:
+      Description: Lambda Function to generate the report data
+      FunctionName: getRealData
+      Handler: index.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Timeout: 30
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          MY_BUCKET_STR: !Ref S3Bucket # aws-tc-largeobjects
+          MY_RD_STR: "rds-endpoint-not-deployed"
+      Code:
+        S3Bucket: !Ref S3Bucket # aws-tc-largeobjects
+        S3Key: get_real_data.zip # CUR-TF-200-ACCDEV-2-91558/13-lab-ci-cd/s3
+
+  SNSForSendingEmail:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Email Report"
+      FifoTopic: false
+      TopicName: email
+  LambdaCustomS3Mover:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Lambda Function to move items to s3
+      FunctionName: MoveS3Code
+      Handler: index.handler
+      Timeout: 30
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          LAB_NAME_STR: lab-13-ci-cd
+          SOURCE_BUCKET_STR: aws-tc-largeobjects
+          TARGET_BUCKET_STR: !Ref S3Bucket
+      Code:
+        ZipFile: |
+          const { S3Client, CopyObjectCommand } = require("@aws-sdk/client-s3");
+          const RESPONSE = require("cfn-response");
+
+          const s3Client = new S3Client();
+          const SOURCE_BUCKET_NAME_STR = process.env.SOURCE_BUCKET_STR;
+          const TARGET_BUCKET_NAME_STR = process.env.TARGET_BUCKET_STR;
+          const LAB_NAME_STR = process.env.LAB_NAME_STR;
+          const KEY_STR_ARR = [
+            "get_real_data.zip",
+            "generate_html.zip",
+            "generate_presigned.zip",
+            "step.json"
+          ];
+
+          exports.handler = async (event, context) => {
+            console.log("copy all items from this bucket to a bucket in us-east-1");
+            
+            if (event['ResourceProperties'] && event['ResourceProperties']['lab_name_str']) {
+              console.log("Woot this picked this up", event['ResourceProperties']['lab_name_str']);
+            } else {
+              console.log(event);
+            }
+
+            try {
+              const copyPromises = KEY_STR_ARR.map(key => {
+                const params = {
+                  CopySource: `${SOURCE_BUCKET_NAME_STR}/CUR-TF-200-ACCDEV-2-DEV/${LAB_NAME_STR}/s3/${key}`,
+                  Bucket: TARGET_BUCKET_NAME_STR,
+                  Key: key
+                };
+                console.log("source", params.CopySource);
+                console.log("target", params.Bucket);
+                return s3Client.send(new CopyObjectCommand(params));
+              });
+
+              await Promise.all(copyPromises);
+              
+              // Wait for eventual consistency
+              await new Promise(resolve => setTimeout(resolve, 10000));
+              
+              await RESPONSE.send(event, context, RESPONSE.SUCCESS, {"test_response_1": "all good"});
+            } catch (error) {
+              console.error('Error:', error);
+              await RESPONSE.send(event, context, RESPONSE.FAILED, {"error": error.message});
+            }
+          };
+
+  CustomS3Mover:
+    Type: Custom::LambdaFileRegionMover #AWS::CloudFormation::CustomResource
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt LambdaCustomS3Mover.Arn
+      lab_name_str: lab-13-ci-cd
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: admin_only
+            Priority: 1
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AliasAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 7
+      UsernameConfiguration:
+        CaseSensitive: false
+      UserPoolName: "the_cafe"
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      AllowedOAuthFlows:
+        - implicit
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - email
+        - openid
+      CallbackURLs:
+        - !Sub "https://${S3Bucket}.s3-website-${AWS::Region}.amazonaws.com/callback.html"
+      ClientName: "the_cafe_app_client"
+      DefaultRedirectURI: !Sub "https://${S3Bucket}.s3-website-${AWS::Region}.amazonaws.com/callback.html"
+      LogoutURLs:
+        - !Sub "https://${S3Bucket}.s3-website-${AWS::Region}.amazonaws.com/callback.html" 
+      SupportedIdentityProviders:
+        - COGNITO
+      UserPoolId: !Ref CognitoUserPool
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub "cafe-${AWS::AccountId}"
+      UserPoolId: !Ref CognitoUserPool
+
+  CustomCognitoFixer:
+    Type: Custom::CognitoFixer
+    Properties:
+      ServiceToken: !GetAtt LambdaCustomCognitoFixer.Arn
+
+  LambdaCustomCognitoFixer:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Lambda Function to add a user
+      FunctionName: CognitoFixer
+      Handler: index.handler
+      Timeout: 30
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          USER_POOL_ID_STR: !Ref CognitoUserPool
+          EMAIL_ADDRESS_STR: "test@example.com" #they will need to replace this with a script later
+      Code:
+        ZipFile: |
+          exports.handler = function(event, context, callback){
+          var
+            AWS_SDK = require("@aws-sdk/client-cognito-identity-provider"),
+            RESPONSE = require("cfn-response"),
+            cognitoidentityserviceprovider = new AWS_SDK.CognitoIdentityProviderClient(),
+            params = {
+              UserPoolId: process.env.USER_POOL_ID_STR,
+              Username: "frank",
+              DesiredDeliveryMediums: ["EMAIL"],
+              ForceAliasCreation: true,
+              MessageAction: "SUPPRESS",
+              TemporaryPassword: "!CoffeeIsGreat34",
+              UserAttributes: [{
+                "Name": "email",
+                "Value": process.env.EMAIL_ADDRESS_STR
+              },{
+                "Name": "email_verified",
+                "Value": "true"
+              }]
+            };
+
+          const createUserCommand = new AWS_SDK.AdminCreateUserCommand(params);
+          cognitoidentityserviceprovider.send(createUserCommand)
+            .then((data) => {
+              if(data){
+                console.log(data);
+              }
+              var passwordParams = {
+                Password: '!CoffeeIsGreat35',
+                UserPoolId: process.env.USER_POOL_ID_STR,
+                Username: 'frank',
+                Permanent: true
+              };
+              const setPasswordCommand = new AWS_SDK.AdminSetUserPasswordCommand(passwordParams);
+              return cognitoidentityserviceprovider.send(setPasswordCommand);
+            })
+            .then((data) => {
+              console.log(data);
+              RESPONSE.send(event, context, RESPONSE.SUCCESS, {"test_response_1": "cool"});
+            })
+            .catch((err) => {
+              console.log(err);
+              RESPONSE.send(event, context, RESPONSE.FAILED, {"error": err.message});
+            });
+          };
+
+  CafeAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      # AuthorizerCredentials: String
+      # AuthorizerResultTtlInSeconds: Integer
+      # AuthorizerUri: String
+      IdentitySource: method.request.header.Authorization
+      Name: cafe_lockdown
+      ProviderARNs:
+        - !GetAtt CognitoUserPool.Arn
+      RestApiId: !Ref ApiGatewayRestApi
+      Type: COGNITO_USER_POOLS
+  CafeAuthorizerValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      Name: CafeAuthorizerValidator
+      RestApiId: !Ref ApiGatewayRestApi
+      ValidateRequestBody: false
+      ValidateRequestParameters: true
+  S3PipelineBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub codepipeline-us-east-1-${AWS::AccountId}-website
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: false
+        BlockPublicPolicy: true
+
+  CafeCodeCommitRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: front_end_website
+      RepositoryDescription: Repository for the cafe website front end
+
+  CafeInventoryQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: cafe-inventory-updates
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CafeInventoryDLQ.Arn
+        maxReceiveCount: 3
+
+  CafeInventoryDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: cafe-inventory-updates-dlq
+
+  CafeInventoryQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref CafeInventoryQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt CafeInventoryQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref SNSForSendingEmail
+
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt
+      - S3Bucket
+      - WebsiteURL
+    Description: URL for Cafe website hosted on S3
+
+  CustomResponseFromMover:
+    Value: !GetAtt
+      - CustomS3Mover
+      - test_response_1
+  ClusterEndpoint:
+    Description: "Aurora Cluster/Writer Endpoint"
+    Value: "rds-endpoint-not-deployed"
+

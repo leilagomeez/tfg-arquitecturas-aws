@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: TFG Serverless - Messaging Stack
+
+Resources:
+
+  CreacionPedidosDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: CreacionPedidos-dlq
+
+  CreacionPedidosQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: CreacionPedidos
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CreacionPedidosDLQ.Arn
+        maxReceiveCount: 3
+
+  RespuestaPedidosQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: RespuestaPedidos
+
+  PedidosTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: Pedidos
+
+  PedidosEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref PedidosTopic
+      Endpoint: leilagomezvallejo8@gmail.com
+
+Outputs:
+
+  CreacionPedidosQueueUrl:
+    Value: !Ref CreacionPedidosQueue
+    Export:
+      Name: gamestore-creacion-pedidos-url
+
+  CreacionPedidosQueueArn:
+    Value: !GetAtt CreacionPedidosQueue.Arn
+    Export:
+      Name: gamestore-creacion-pedidos-arn
+
+  RespuestaPedidosQueueUrl:
+    Value: !Ref RespuestaPedidosQueue
+    Export:
+      Name: gamestore-respuesta-pedidos-url
+
+  RespuestaPedidosQueueArn:
+    Value: !GetAtt RespuestaPedidosQueue.Arn
+    Export:
+      Name: gamestore-respuesta-pedidos-arn
+
+  PedidosTopicArn:
+    Value: !Ref PedidosTopic
+    Export:
+      Name: gamestore-pedidos-topic-arn

@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: TFG Serverless - Lambda Stack
+
+Resources:
+
+  PedidosHandlerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: PedidosHandler
+      Runtime: python3.12
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: PedidosHandler.lambda_handler
+      Code:
+        S3Bucket: !ImportValue gamestore-lambda-code-bucket
+        S3Key: PedidosHandler.zip
+      Environment:
+        Variables:
+          CREACION_QUEUE_URL: !ImportValue gamestore-creacion-pedidos-url
+
+  TareasHandlerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: TareasHandler
+      Runtime: python3.12
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: TareasHandler.lambda_handler
+      Code:
+        S3Bucket: !ImportValue gamestore-lambda-code-bucket
+        S3Key: TareasHandler.zip
+
+  TareasHandlerTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !ImportValue gamestore-respuesta-pedidos-arn
+      FunctionName: !GetAtt TareasHandlerFunction.Arn
+      BatchSize: 1
+      Enabled: true
+
+  ProcesarPedidoFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: ProcesarPedido
+      Runtime: python3.12
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: ProcesarPedido.lambda_handler
+      Code:
+        S3Bucket: !ImportValue gamestore-lambda-code-bucket
+        S3Key: ProcesarPedido.zip
+      Environment:
+        Variables:
+          RESPUESTA_QUEUE_URL: !ImportValue gamestore-respuesta-pedidos-url
+          SNS_TOPIC_ARN: !ImportValue gamestore-pedidos-topic-arn
+          DISPONIBILIDAD_LAMBDA: !GetAtt ComprobarDisponibilidadFunction.Arn
+
+  ProcesarPedidoTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !ImportValue gamestore-creacion-pedidos-arn
+      FunctionName: !GetAtt ProcesarPedidoFunction.Arn
+      BatchSize: 1
+      Enabled: true
+
+  ComprobarDisponibilidadFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: ComprobarDisponibilidad
+      Runtime: python3.12
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: ComprobarDisponibilidad.lambda_handler
+      Code:
+        S3Bucket: !ImportValue gamestore-lambda-code-bucket
+        S3Key: ComprobarDisponibilidad.zip
+
+  GamesHandlerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: GamesHandler
+      Runtime: python3.12
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: GamesHandler.lambda_handler
+      Code:
+        S3Bucket: !ImportValue gamestore-lambda-code-bucket
+        S3Key: GamesHandler.zip
+
+  UsersHandlerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: UsersHandler
+      Runtime: python3.12
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: UsersHandler.lambda_handler
+      Code:
+        S3Bucket: !ImportValue gamestore-lambda-code-bucket
+        S3Key: UsersHandler.zip
+
+  CategoriesHandlerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: CategoriesHandler
+      Runtime: python3.12
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: CategoriesHandler.lambda_handler
+      Code:
+        S3Bucket: !ImportValue gamestore-lambda-code-bucket
+        S3Key: CategoriesHandler.zip
+
+  TagsHandlerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: TagsHandler
+      Runtime: python3.12
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: TagsHandler.lambda_handler
+      Code:
+        S3Bucket: !ImportValue gamestore-lambda-code-bucket
+        S3Key: TagsHandler.zip
+
+Outputs:
+
+  PedidosHandlerArn:
+    Value: !GetAtt PedidosHandlerFunction.Arn
+    Export:
+      Name: gamestore-pedidos-handler-arn
+
+  TareasHandlerArn:
+    Value: !GetAtt TareasHandlerFunction.Arn
+    Export:
+      Name: gamestore-tareas-handler-arn
+
+  GamesHandlerArn:
+    Value: !GetAtt GamesHandlerFunction.Arn
+    Export:
+      Name: gamestore-games-handler-arn
+
+  UsersHandlerArn:
+    Value: !GetAtt UsersHandlerFunction.Arn
+    Export:
+      Name: gamestore-users-handler-arn
+
+  CategoriesHandlerArn:
+    Value: !GetAtt CategoriesHandlerFunction.Arn
+    Export:
+      Name: gamestore-categories-handler-arn
+
+  TagsHandlerArn:
+    Value: !GetAtt TagsHandlerFunction.Arn
+    Export:
+      Name: gamestore-tags-handler-arn

@@ -1,0 +1,845 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: TFG Serverless - API Gateway Stack
+
+Resources:
+
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: PedidosAPI
+
+  # ── RECURSOS (rutas) ──────────────────────────────────────────────
+
+  PedidosResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: pedidos
+
+  PedidosIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref PedidosResource
+      PathPart: "{IdPedido}"
+
+  TareasResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: tareas
+
+  TareasIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref TareasResource
+      PathPart: "{IdTarea}"
+
+  GamesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: games
+
+  GamesIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref GamesResource
+      PathPart: "{IdGame}"
+
+  UsersResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: users
+
+  UsersIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref UsersResource
+      PathPart: "{username}"
+
+  CategoriesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: categories
+
+  CategoriesIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref CategoriesResource
+      PathPart: "{IdCategory}"
+
+  TagsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: tags
+
+  TagsIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref TagsResource
+      PathPart: "{IdTag}"
+
+  # ── MÉTODOS ───────────────────────────────────────────────────────
+
+  # /pedidos GET
+  PedidosGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PedidosResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+        - Arn: !ImportValue gamestore-pedidos-handler-arn
+
+  # /pedidos POST
+  PedidosPOST:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PedidosResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-pedidos-handler-arn
+
+  # /pedidos OPTIONS
+  PedidosOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PedidosResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-pedidos-handler-arn
+
+  # /pedidos/{IdPedido} GET
+  PedidosIdGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PedidosIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-pedidos-handler-arn
+
+  # /pedidos/{IdPedido} PUT
+  PedidosIdPUT:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PedidosIdResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-pedidos-handler-arn
+
+  # /pedidos/{IdPedido} DELETE
+  PedidosIdDELETE:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PedidosIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-pedidos-handler-arn
+
+  # /pedidos/{IdPedido} OPTIONS
+  PedidosIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PedidosIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-pedidos-handler-arn
+
+  # /tareas/{IdTarea} GET
+  TareasIdGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref TareasIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-tareas-handler-arn
+
+  # /games GET
+  GamesGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref GamesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-games-handler-arn
+
+  # /games POST
+  GamesPOST:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref GamesResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-games-handler-arn
+
+  # /games OPTIONS
+  GamesOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref GamesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-games-handler-arn
+
+  # /games/{IdGame} GET
+  GamesIdGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref GamesIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-games-handler-arn
+
+  # /games/{IdGame} PUT
+  GamesIdPUT:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref GamesIdResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-games-handler-arn
+
+  # /games/{IdGame} DELETE
+  GamesIdDELETE:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref GamesIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-games-handler-arn
+
+  # /games/{IdGame} OPTIONS
+  GamesIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref GamesIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-games-handler-arn
+
+  # /users GET
+  UsersGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref UsersResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-users-handler-arn
+
+  # /users POST
+  UsersPOST:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref UsersResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-users-handler-arn
+
+  # /users OPTIONS
+  UsersOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref UsersResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-users-handler-arn
+
+  # /users/{username} GET
+  UsersIdGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref UsersIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-users-handler-arn
+
+  # /users/{username} PUT
+  UsersIdPUT:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref UsersIdResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-users-handler-arn
+
+  # /users/{username} DELETE
+  UsersIdDELETE:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref UsersIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-users-handler-arn
+
+  # /users/{username} OPTIONS
+  UsersIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref UsersIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-users-handler-arn
+
+  # /categories GET
+  CategoriesGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref CategoriesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-categories-handler-arn
+
+  # /categories OPTIONS
+  CategoriesOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref CategoriesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-categories-handler-arn
+
+  # /categories/{IdCategory} GET
+  CategoriesIdGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref CategoriesIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-categories-handler-arn
+
+  # /categories/{IdCategory} OPTIONS
+  CategoriesIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref CategoriesIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-categories-handler-arn
+
+  # /tags GET
+  TagsGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref TagsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-tags-handler-arn
+
+  # /tags OPTIONS
+  TagsOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref TagsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-tags-handler-arn
+
+  # /tags/{IdTag} GET
+  TagsIdGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref TagsIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-tags-handler-arn
+
+  # /tags/{IdTag} OPTIONS
+  TagsIdOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref TagsIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Arn}/invocations
+          - Arn: !ImportValue gamestore-tags-handler-arn
+
+  # ── PERMISOS LAMBDA (granulares por método) ───────────────────────
+
+  # PedidosHandler
+  PedidosGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-pedidos-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/pedidos
+
+  PedidosPOSTPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-pedidos-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/pedidos
+
+  PedidosOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-pedidos-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/pedidos
+
+  PedidosIdGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-pedidos-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/pedidos/*
+
+  PedidosIdPUTPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-pedidos-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/PUT/pedidos/*
+
+  PedidosIdDELETEPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-pedidos-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/DELETE/pedidos/*
+
+  PedidosIdOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-pedidos-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/pedidos/*
+
+  # TareasHandler
+  TareasIdGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-tareas-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/tareas/*
+
+  TareasIdOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-tareas-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/tareas/*
+
+  # GamesHandler
+  GamesGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-games-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/games
+
+  GamesPOSTPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-games-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/games
+
+  GamesOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-games-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/games
+
+  GamesIdGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-games-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/games/*
+
+  GamesIdPUTPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-games-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/PUT/games/*
+
+  GamesIdDELETEPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-games-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/DELETE/games/*
+
+  GamesIdOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-games-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/games/*
+
+  # UsersHandler
+  UsersGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-users-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/users
+
+  UsersPOSTPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-users-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/users
+
+  UsersOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-users-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/users
+
+  UsersIdGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-users-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/users/*
+
+  UsersIdPUTPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-users-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/PUT/users/*
+
+  UsersIdDELETEPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-users-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/DELETE/users/*
+
+  UsersIdOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-users-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/users/*
+
+  # CategoriesHandler
+  CategoriesGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-categories-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/categories
+
+  CategoriesOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-categories-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/categories
+
+  CategoriesIdGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-categories-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/categories/*
+
+  CategoriesIdOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-categories-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/categories/*
+
+  # TagsHandler
+  TagsGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-tags-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/tags
+
+  TagsOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-tags-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/tags
+
+  TagsIdGETPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-tags-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/tags/*
+
+  TagsIdOPTIONSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gamestore-tags-handler-arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/OPTIONS/tags/*
+
+  # ── DEPLOYMENT ────────────────────────────────────────────────────
+
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PedidosGET
+      - PedidosPOST
+      - PedidosIdGET
+      - PedidosIdPUT
+      - PedidosIdDELETE
+      - TareasIdGET
+      - GamesGET
+      - GamesPOST
+      - GamesIdGET
+      - GamesIdPUT
+      - GamesIdDELETE
+      - UsersGET
+      - UsersPOST
+      - UsersIdGET
+      - UsersIdPUT
+      - UsersIdDELETE
+      - CategoriesGET
+      - CategoriesIdGET
+      - TagsGET
+      - TagsIdGET
+    Properties:
+      RestApiId: !Ref RestApi
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref ApiDeployment
+      StageName: prod
+
+Outputs:
+
+  ApiUrl:
+    Value: !Sub https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+    Export:
+      Name: gamestore-api-url

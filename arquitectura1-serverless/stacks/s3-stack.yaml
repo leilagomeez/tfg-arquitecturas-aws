@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: TFG Serverless - S3 Stack
+
+Resources:
+
+  SwaggerBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub gamestore-swagger-${AWS::AccountId}
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+
+  SwaggerBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SwaggerBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${SwaggerBucket}/*
+
+  LambdaCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub gamestore-lambda-code-${AWS::AccountId}
+
+Outputs:
+
+  SwaggerBucketName:
+    Value: !Ref SwaggerBucket
+    Export:
+      Name: gamestore-swagger-bucket
+
+  SwaggerWebsiteURL:
+    Value: !GetAtt SwaggerBucket.WebsiteURL
+    Export:
+      Name: gamestore-swagger-url
+
+  LambdaCodeBucketName:
+    Value: !Ref LambdaCodeBucket
+    Export:
+      Name: gamestore-lambda-code-bucket

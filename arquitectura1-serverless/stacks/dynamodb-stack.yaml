@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: TFG Serverless - DynamoDB Stack
+
+Resources:
+
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: orders
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  TareasTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: tareas
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  GamesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: games
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: username
+          KeyType: HASH
+
+  CategoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: categories
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  TagsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: tags
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+Outputs:
+
+  OrdersTableName:
+    Value: !Ref OrdersTable
+    Export:
+      Name: gamestore-orders-table
+
+  TareasTableName:
+    Value: !Ref TareasTable
+    Export:
+      Name: gamestore-tareas-table
+
+  GamesTableName:
+    Value: !Ref GamesTable
+    Export:
+      Name: gamestore-games-table
+
+  UsersTableName:
+    Value: !Ref UsersTable
+    Export:
+      Name: gamestore-users-table
+
+  CategoriesTableName:
+    Value: !Ref CategoriesTable
+    Export:
+      Name: gamestore-categories-table
+
+  TagsTableName:
+    Value: !Ref TagsTable
+    Export:
+      Name: gamestore-tags-table

@@ -1,0 +1,856 @@
+openapi: 3.0.3
+info:
+  title: 'Game Store — Serverless API'
+  description: |-
+    API REST serverless para la tienda de videojuegos Game Store.
+    Desplegada en AWS con API Gateway + Lambda + SQS + SNS + DynamoDB.
+  contact:
+    email: m.jimenez@upm.es
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.0
+servers:
+  - url: https://miogoeioy5.execute-api.us-east-1.amazonaws.com/prod
+
+tags:
+  - name: pedidos
+    description: Gestión de pedidos de la tienda
+  - name: tareas
+    description: Consulta del estado de tareas asíncronas
+  - name: games
+    description: Catálogo de videojuegos
+  - name: users
+    description: Gestión de usuarios
+  - name: categories
+    description: Categorías de plataforma
+  - name: tags
+    description: Etiquetas de género
+
+paths:
+
+  # ─── PEDIDOS ────────────────────────────────────────────────────────────────
+
+  /pedidos:
+    get:
+      tags:
+        - pedidos
+      summary: Obtener todos los pedidos
+      description: Devuelve la lista completa de pedidos almacenados en DynamoDB
+      operationId: getAllPedidos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pedidos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Pedido'
+
+    post:
+      tags:
+        - pedidos
+      summary: Crear un nuevo pedido
+      description: |-
+        Encola la solicitud en SQS (CreaciónPedidos) y devuelve inmediatamente
+        un 202 Accepted con el identificador de la tarea asíncrona.
+        El pedido es procesado por λ ProcesarPedido, que verifica disponibilidad
+        invocando directamente a λ ComprobarDisponibilidad por cada juego.
+      operationId: createPedido
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedidoCreate'
+      responses:
+        '202':
+          description: Pedido aceptado y encolado para procesamiento asíncrono
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TareaResponse'
+        '400':
+          description: JSON inválido, campo obligatorio ausente o datos incorrectos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Campo obligatorio ausente: 'games'"
+
+  /pedidos/{IdPedido}:
+    get:
+      tags:
+        - pedidos
+      summary: Obtener un pedido por ID
+      operationId: getPedidoById
+      parameters:
+        - $ref: '#/components/parameters/IdPedido'
+      responses:
+        '200':
+          description: Pedido encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pedido'
+        '404':
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Pedido '792f6be0-ace1-4826-a1e3-680862d99121' no encontrado"
+
+    put:
+      tags:
+        - pedidos
+      summary: Actualizar un pedido
+      description: Permite actualizar el status y/o la dirección de un pedido existente
+      operationId: updatePedido
+      parameters:
+        - $ref: '#/components/parameters/IdPedido'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedidoUpdate'
+      responses:
+        '200':
+          description: Pedido actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pedido'
+        '400':
+          description: JSON inválido o ningún campo válido para actualizar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Se requiere al menos 'status' o 'address' para actualizar"
+        '404':
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Pedido '792f6be0-ace1-4826-a1e3-680862d99121' no encontrado"
+
+    delete:
+      tags:
+        - pedidos
+      summary: Eliminar un pedido
+      operationId: deletePedido
+      parameters:
+        - $ref: '#/components/parameters/IdPedido'
+      responses:
+        '204':
+          description: Pedido eliminado correctamente
+        '404':
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Pedido '792f6be0-ace1-4826-a1e3-680862d99121' no encontrado"
+
+  # ─── TAREAS ─────────────────────────────────────────────────────────────────
+
+  /tareas/{IdTarea}:
+    get:
+      tags:
+        - tareas
+      summary: Consultar el estado de una tarea asíncrona
+      description: |-
+        El IdTarea es el MessageId devuelto por el POST /pedidos.
+        Si el procesado aún no ha terminado devuelve estado en_proceso.
+        Si ha terminado devuelve terminada con la URL del pedido creado.
+      operationId: getTareaById
+      parameters:
+        - name: IdTarea
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "77750849-7c91-49e9-856b-d16ec6cdbd8d"
+      responses:
+        '200':
+          description: Estado de la tarea
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+
+  # ─── GAMES ──────────────────────────────────────────────────────────────────
+
+  /games:
+    get:
+      tags:
+        - games
+      summary: Obtener todos los juegos
+      description: Devuelve el catálogo completo con categoría y tags resueltos
+      operationId: getAllGames
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Game'
+
+    post:
+      tags:
+        - games
+      summary: Añadir un nuevo juego
+      operationId: createGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameCreate'
+      responses:
+        '200':
+          description: Juego creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: JSON inválido o campo obligatorio ausente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Campo obligatorio ausente: 'name'"
+        '404':
+          description: Categoría o tag no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Categoría 'PC' no encontrada"
+
+  /games/{IdGame}:
+    get:
+      tags:
+        - games
+      summary: Obtener un juego por ID
+      operationId: getGameById
+      parameters:
+        - $ref: '#/components/parameters/IdGame'
+      responses:
+        '200':
+          description: Juego encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '404':
+          description: Juego no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Juego 'f2389b96-afa4-43ca-bf05-a588d74d68e1' no encontrado"
+
+    put:
+      tags:
+        - games
+      summary: Actualizar un juego
+      operationId: updateGame
+      parameters:
+        - $ref: '#/components/parameters/IdGame'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameUpdate'
+      responses:
+        '200':
+          description: Juego actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: JSON inválido o ningún campo válido para actualizar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Se requiere al menos un campo para actualizar"
+        '404':
+          description: Juego, categoría o tag no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Juego 'f2389b96-afa4-43ca-bf05-a588d74d68e1' no encontrado"
+
+    delete:
+      tags:
+        - games
+      summary: Eliminar un juego
+      operationId: deleteGame
+      parameters:
+        - $ref: '#/components/parameters/IdGame'
+      responses:
+        '204':
+          description: Juego eliminado correctamente
+        '404':
+          description: Juego no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Juego 'f2389b96-afa4-43ca-bf05-a588d74d68e1' no encontrado"
+
+  # ─── USERS ──────────────────────────────────────────────────────────────────
+
+  /users:
+    get:
+      tags:
+        - users
+      summary: Obtener todos los usuarios
+      description: Devuelve la lista de usuarios sin el campo password
+      operationId: getAllUsers
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+    post:
+      tags:
+        - users
+      summary: Crear un nuevo usuario
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '200':
+          description: Usuario creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: JSON inválido o campo obligatorio ausente o usuario ya existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Campo obligatorio ausente: 'first_name'"
+
+  /users/{username}:
+    get:
+      tags:
+        - users
+      summary: Obtener un usuario por username
+      operationId: getUserByUsername
+      parameters:
+        - $ref: '#/components/parameters/username'
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Usuario 'lichking' no encontrado"
+
+    put:
+      tags:
+        - users
+      summary: Actualizar un usuario
+      description: Permite actualizar first_name, last_name, email y/o phone
+      operationId: updateUser
+      parameters:
+        - $ref: '#/components/parameters/username'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: JSON inválido o ningún campo válido para actualizar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Se requiere al menos uno de: first_name, last_name, email, phone"
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Usuario 'lichking' no encontrado"
+
+    delete:
+      tags:
+        - users
+      summary: Eliminar un usuario
+      operationId: deleteUser
+      parameters:
+        - $ref: '#/components/parameters/username'
+      responses:
+        '204':
+          description: Usuario eliminado correctamente
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Usuario 'lichking' no encontrado"
+
+  # ─── CATEGORIES ─────────────────────────────────────────────────────────────
+
+  /categories:
+    get:
+      tags:
+        - categories
+      summary: Obtener todas las categorías
+      operationId: getAllCategories
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+
+  /categories/{IdCategory}:
+    get:
+      tags:
+        - categories
+      summary: Obtener una categoría por ID
+      operationId: getCategoryById
+      parameters:
+        - name: IdCategory
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "6ef5f12d-acbe-4079-9c03-461363ee6911"
+      responses:
+        '200':
+          description: Categoría encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '404':
+          description: Categoría no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Categoría '6ef5f12d-acbe-4079-9c03-461363ee6911' no encontrada"
+
+  # ─── TAGS ───────────────────────────────────────────────────────────────────
+
+  /tags:
+    get:
+      tags:
+        - tags
+      summary: Obtener todos los tags
+      operationId: getAllTags
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+
+  /tags/{IdTag}:
+    get:
+      tags:
+        - tags
+      summary: Obtener un tag por ID
+      operationId: getTagById
+      parameters:
+        - name: IdTag
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "4e950f19-5dca-4458-bef6-834ba5c269a2"
+      responses:
+        '200':
+          description: Tag encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        '404':
+          description: Tag no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Tag '4e950f19-5dca-4458-bef6-834ba5c269a2' no encontrado"
+
+# ─── COMPONENTS ───────────────────────────────────────────────────────────────
+
+components:
+
+  parameters:
+    IdPedido:
+      name: IdPedido
+      in: path
+      required: true
+      schema:
+        type: string
+        example: "792f6be0-ace1-4826-a1e3-680862d99121"
+    IdGame:
+      name: IdGame
+      in: path
+      required: true
+      schema:
+        type: string
+        example: "f2389b96-afa4-43ca-bf05-a588d74d68e1"
+    username:
+      name: username
+      in: path
+      required: true
+      schema:
+        type: string
+        example: "lichking"
+
+  schemas:
+
+    # ── Pedidos ──────────────────────────────────────────────────────────────
+
+    PedidoCreate:
+      type: object
+      required:
+        - games
+        - user
+        - address
+      properties:
+        games:
+          type: array
+          items:
+            type: string
+          example:
+            - "f2389b96-afa4-43ca-bf05-a588d74d68e1"
+            - "fc04c872-a936-49b8-b40e-eb61286892fc"
+        user:
+          type: string
+          example: "lichking"
+        address:
+          type: string
+          example: "Campus de Montegancedo, ETSIINF"
+        status:
+          type: string
+          example: "pending"
+
+    PedidoUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "sent"
+        address:
+          type: string
+          example: "Nueva dirección de entrega"
+
+    Pedido:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "792f6be0-ace1-4826-a1e3-680862d99121"
+        games:
+          type: array
+          items:
+            type: string
+          example:
+            - "f2389b96-afa4-43ca-bf05-a588d74d68e1"
+        user:
+          type: string
+          example: "lichking"
+        address:
+          type: string
+          example: "Campus de Montegancedo, ETSIINF"
+        status:
+          type: string
+          example: "pending"
+
+    TareaResponse:
+      type: object
+      properties:
+        tarea:
+          type: object
+          properties:
+            idTarea:
+              type: string
+              example: "77750849-7c91-49e9-856b-d16ec6cdbd8d"
+            estado:
+              type: string
+              example: "en_proceso"
+            link:
+              type: string
+              example: "/tareas/77750849-7c91-49e9-856b-d16ec6cdbd8d"
+
+    Tarea:
+      type: object
+      properties:
+        idTarea:
+          type: string
+          example: "77750849-7c91-49e9-856b-d16ec6cdbd8d"
+        estado:
+          type: string
+          enum:
+            - en_proceso
+            - terminada
+            - terminada_con_error
+          example: "terminada"
+        urlPedido:
+          type: string
+          nullable: true
+          description: Solo presente cuando estado es terminada
+          example: "/pedidos/792f6be0-ace1-4826-a1e3-680862d99121"
+        error:
+          type: string
+          nullable: true
+          description: Solo presente cuando estado es terminada_con_error
+          example: null
+
+    # ── Games ─────────────────────────────────────────────────────────────────
+
+    GameCreate:
+      type: object
+      required:
+        - name
+        - availableQuantity
+        - category
+        - photoUrl
+        - tags
+      properties:
+        name:
+          type: string
+          example: "Elden Ring"
+        availableQuantity:
+          type: integer
+          example: 15
+        category:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "PC"
+        photoUrl:
+          type: string
+          example: "https://upload.wikimedia.org/wikipedia/en/b/b9/Elden_Ring_Box_art.jpg"
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+          example:
+            - name: "Action"
+            - name: "RPG"
+
+    GameUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Elden Ring"
+        availableQuantity:
+          type: integer
+          example: 50
+        category:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "PC"
+        photoUrl:
+          type: string
+          example: "https://upload.wikimedia.org/wikipedia/en/b/b9/Elden_Ring_Box_art.jpg"
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+          example:
+            - name: "Action"
+
+    Game:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "f2389b96-afa4-43ca-bf05-a588d74d68e1"
+        name:
+          type: string
+          example: "Persona 5 Royal"
+        available_quantity:
+          type: integer
+          example: 20
+        category:
+          $ref: '#/components/schemas/Category'
+        photo_url:
+          type: string
+          example: "https://m.media-amazon.com/images/I/71lQbeZ5LFL._AC_SX522_.jpg"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+
+    # ── Users ─────────────────────────────────────────────────────────────────
+
+    UserCreate:
+      type: object
+      required:
+        - username
+        - first_name
+        - last_name
+        - email
+        - password
+        - phone
+      properties:
+        username:
+          type: string
+          example: "arthas"
+        first_name:
+          type: string
+          example: "Arthas"
+        last_name:
+          type: string
+          example: "Menethil"
+        email:
+          type: string
+          example: "arthas@warcraft.com"
+        password:
+          type: string
+          example: "frostmourne123"
+        phone:
+          type: string
+          example: "+34666777888"
+
+    UserUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+          example: "Arthas"
+        last_name:
+          type: string
+          example: "Menethil"
+        email:
+          type: string
+          example: "arthas_nuevo@warcraft.com"
+        phone:
+          type: string
+          example: "+34666777999"
+
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+          example: "lichking"
+        first_name:
+          type: string
+          example: "Arthas"
+        last_name:
+          type: string
+          example: "Menethil"
+        email:
+          type: string
+          example: "arthas@warcraft.com"
+        phone:
+          type: string
+          example: "+34666777888"
+
+    # ── Categories & Tags ─────────────────────────────────────────────────────
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "6ef5f12d-acbe-4079-9c03-461363ee6911"
+        name:
+          type: string
+          example: "PC"
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "4e950f19-5dca-4458-bef6-834ba5c269a2"
+        name:
+          type: string
+          example: "Action"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Mensaje de error"
