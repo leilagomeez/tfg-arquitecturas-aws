@@ -1,4 +1,4 @@
-# Arquitecturas AWS — TFG Monitorización de Microservicios
+# Arquitecturas AWS - TFG Monitorización de Microservicios
 
 Este repositorio contiene el código de despliegue de las dos arquitecturas cloud desarrolladas como caso de estudio en el Trabajo de Fin de Grado *"Monitorización y análisis de arquitecturas cloud basadas en microservicios"*.
 
@@ -15,7 +15,7 @@ Este repositorio contiene el código de despliegue de las dos arquitecturas clou
 
 ---
 
-## Arquitectura 1 — Game Store Serverless
+## Arquitectura 1 - Game Store Serverless
 
 Arquitectura exclusivamente serverless que implementa una tienda de videojuegos. Compuesta por funciones Lambda, tablas DynamoDB, una API REST en API Gateway, colas SQS con DLQ, un topic SNS y almacenamiento S3 para el código y la interfaz Swagger.
 
@@ -62,7 +62,7 @@ El script orquesta la creación de los recursos en el siguiente orden:
 
 ---
 
-## Arquitectura 2 — Café App
+## Arquitectura 2 - Café App
 
 Arquitectura híbrida que combina servicios serverless con servicios PaaS. Implementa una aplicación de gestión de un café con autenticación, base de datos relacional, caché, orquestación de flujos y seguridad perimetral.
 
