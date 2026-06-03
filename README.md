@@ -3,7 +3,7 @@
 Este repositorio contiene el código de despliegue de las dos arquitecturas cloud desarrolladas como caso de estudio en el Trabajo de Fin de Grado *"Monitorización y análisis de arquitecturas cloud basadas en microservicios"*.
 
 **Autora:** Leila Gómez Vallejo  
-**Grado:** Ingeniería Informática — ETSI Informáticos, UPM
+**Grado:** Ingeniería Informática - ETSI Informáticos, UPM
 
 ---
 
